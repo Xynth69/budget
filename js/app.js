@@ -3,7 +3,7 @@ import {
 } from './store.js';
 import { homeView, tankView, settingsView } from './views.js';
 
-const VERSION = '4.0.0';
+const VERSION = '5.0.0';
 const HINT_KEY = 'budget.welcomeDone';
 const TOAST_MS = 5000;
 const SWIPE_OPEN_PX = -88;

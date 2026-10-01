@@ -9,7 +9,7 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
 
 // The plan as of v4: food (Factor, groceries, YFood) and €100 savings are fixed costs;
 // personal spending is €23 a week (≈ €100 a month) and resets every Monday.
@@ -20,7 +20,7 @@ const PLAN = [
   { id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 },
   { id: 'subs', name: 'Subscriptions', type: 'bill', amount: 50, period: 'month', due: 15 },
   { id: 'gro', name: 'Groceries', type: 'bill', amount: 46, period: 'month', due: 1 },
-  { id: 'drinks', name: 'YFood', type: 'bill', amount: 24, period: 'month', due: 1 },
+  { id: 'drinks', name: 'YFood', type: 'bill', amount: 48, period: 'month', due: 1 },
   { id: 'save', name: 'Savings', type: 'bill', amount: 100, period: 'month', due: 1 },
 ];
 
@@ -29,7 +29,7 @@ const PLAN = [
 const SHIPPED = {
   gro: [['tank', 'month', 46], ['tank', 'week', 10.5]],
   fun: [['tank', 'month', 100], ['tank', 'week', 23], ['tank', 'week', 18.5]],
-  drinks: [['tank', 'month', 24], ['tank', 'week', 5.5]],
+  drinks: [['tank', 'month', 24], ['tank', 'week', 5.5], ['bill', 'month', 24]],
 };
 
 const isUntouched = (c) => (SHIPPED[c.id] || []).some(([type, period, amount]) =>
