@@ -9,16 +9,30 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+const DATA_VERSION = 2;
+// Weekly budgets: the monthly plan (€46 / €100 / €24) ÷ 4.33, rounded down to 50 cents.
+const WEEKLY_SEED = [['gro', 'Groceries', 10.5], ['fun', 'Entertainment', 23], ['drinks', 'Drinks', 5.5]];
+const MONTHLY_V1 = { gro: 46, fun: 100, drinks: 24 };
+
+// v1 shipped these budgets as monthly. Switch them to weekly only if they are still untouched.
+function migrate(data) {
+  if (data.v >= DATA_VERSION) return data;
+  const cats = data.cats.map((c) => {
+    const seed = WEEKLY_SEED.find(([id]) => id === c.id);
+    const untouched = seed && c.type === 'tank' && c.period === 'month' && c.amount === MONTHLY_V1[c.id];
+    return untouched ? { ...c, period: 'week', amount: seed[2] } : c;
+  });
+  return { ...data, v: DATA_VERSION, cats };
+}
+
 export function seedData() {
   const cat = (c) => ({ txs: [], paidKey: null, due: null, ...c });
   return {
-    v: 1,
+    v: DATA_VERSION,
     balance: null,
     income: 1362, // €562 spending money + €800 rent, per month
     cats: [
-      cat({ id: 'gro', name: 'Groceries', type: 'tank', amount: 46, period: 'month' }),
-      cat({ id: 'fun', name: 'Entertainment', type: 'tank', amount: 100, period: 'month' }),
-      cat({ id: 'drinks', name: 'Drinks', type: 'tank', amount: 24, period: 'month' }),
+      ...WEEKLY_SEED.map(([id, name, amount]) => cat({ id, name, type: 'tank', amount, period: 'week' })),
       cat({ id: 'rent', name: 'Rent', type: 'bill', amount: 800, period: 'month', due: 1 }),
       // Weekly bill `due` is a weekday index where 0 = Monday.
       cat({ id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 }),
@@ -51,15 +65,18 @@ export function validateData(raw) {
       txs,
     });
   }
-  return { v: 1, balance: isNum(raw.balance) ? raw.balance : null, income: isNum(raw.income) ? raw.income : null, cats };
+  return { v: isNum(raw.v) ? raw.v : 1, balance: isNum(raw.balance) ? raw.balance : null, income: isNum(raw.income) ? raw.income : null, cats };
 }
 
 export function loadData() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const data = validateData(JSON.parse(raw));
-      if (data) return { data, persisted: true };
+      const valid = validateData(JSON.parse(raw));
+      if (valid) {
+        const data = migrate(valid);
+        return { data, persisted: data === valid };
+      }
     }
   } catch (err) {
     console.warn('[budget] could not read saved data', err);
@@ -116,9 +133,9 @@ export const monthlyCost = (c) => (c.period === 'week' ? c.amount * WEEKS_PER_MO
 
 // ── Derived state ──
 export const TANK_LEVELS = {
-  nom: 'Nominal',
+  nom: 'On track',
   cau: 'Getting low',
-  warn: 'Almost empty',
+  warn: 'Almost out',
   over: 'Overspent',
 };
 
@@ -136,6 +153,23 @@ export function tankStatus(cat, now) {
     txs, spent, remaining, daysLeft, level, end,
     fill: Math.max(0, Math.min(1, ratio)),
     safeToday: remaining > 0 ? remaining / daysLeft : 0,
+  };
+}
+
+// Combined view of every weekly budget, so the home screen can show one weekly number.
+export function weekSummary(cats, now) {
+  const weekly = cats.filter((c) => c.type === 'tank' && c.period === 'week');
+  if (!weekly.length) return null;
+  const parts = weekly.map((c) => tankStatus(c, now));
+  const budget = weekly.reduce((sum, c) => sum + c.amount, 0);
+  const remaining = Math.round(parts.reduce((sum, s) => sum + s.remaining, 0) * 100) / 100;
+  const ratio = budget > 0 ? remaining / budget : 0;
+  const daysLeft = parts[0].daysLeft;
+  return {
+    budget, remaining, daysLeft, end: parts[0].end,
+    fill: Math.max(0, Math.min(1, ratio)),
+    level: remaining <= 0 ? 'over' : ratio < 0.25 ? 'warn' : ratio <= 0.5 ? 'cau' : 'nom',
+    perDay: remaining > 0 ? remaining / daysLeft : 0,
   };
 }
 

@@ -3,7 +3,7 @@ import {
 } from './store.js';
 import { homeView, tankView, settingsView } from './views.js';
 
-const VERSION = '1.1.0';
+const VERSION = '2.0.0';
 const HINT_KEY = 'budget.welcomeDone';
 const TOAST_MS = 5000;
 const SWIPE_OPEN_PX = -88;
@@ -110,7 +110,7 @@ function settleGauges() {
     const from = shown.fill.get(id) ?? 1;
     shown.fill.set(id, fill);
     if (from !== fill && !reduceMotion.matches) {
-      el.animate([{ transform: `scaleY(${from})` }, { transform: `scaleY(${fill})` }], { duration: GAUGE_MS, easing: EASE_OUT });
+      el.animate([{ transform: `scaleX(${from})` }, { transform: `scaleX(${fill})` }], { duration: GAUGE_MS, easing: EASE_OUT });
     }
   });
   const counter = root.querySelector('[data-count]');

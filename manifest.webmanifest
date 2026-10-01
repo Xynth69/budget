@@ -1,13 +1,13 @@
 {
   "name": "Budget",
   "short_name": "Budget",
-  "description": "Tanks that drain as you spend, locked bills, and how long your money lasts.",
+  "description": "Weekly budgets that go down as you spend, fixed bills, and how long your money lasts.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#F3F4F7",
+  "theme_color": "#F3F4F7",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },

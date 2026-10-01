@@ -1,9 +1,8 @@
 // Offline cache for the app shell. Bump CACHE when any listed file changes.
-const CACHE = 'budget-v1.1.0';
+const CACHE = 'budget-v2.0.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/store.js', './js/views.js',
-  './fonts/plex-sans-var.woff2', './fonts/plex-mono-500.woff2', './fonts/plex-mono-600.woff2',
   './icons/icon-192.png', './icons/apple-touch-icon.png',
 ];
 

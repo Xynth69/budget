@@ -1,6 +1,6 @@
 // Pure HTML templates. Every user-entered string goes through esc().
 import {
-  TANK_LEVELS, tankStatus, billStatus, overview, eur, shortDate, monthlyCost,
+  TANK_LEVELS, tankStatus, weekSummary, billStatus, overview, eur, shortDate, monthlyCost,
 } from './store.js';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -17,21 +17,17 @@ const icon = {
 };
 
 const perWord = (c) => (c.period === 'week' ? 'week' : 'month');
-const refillText = (s) => (s.daysLeft === 1 ? 'Refills tomorrow' : `Refills ${shortDate(s.end, true)}`);
+const refillText = (s) => (s.daysLeft === 1 ? 'Resets tomorrow' : `Resets ${shortDate(s.end, true)}`);
 
 function chip(level) {
   return `<span class="chip lv-${level}"><span class="chip-dot" aria-hidden="true"></span>${TANK_LEVELS[level]}</span>`;
 }
 
-// The tube is drawn at its true level; app.js animates from the previous level.
-function tube(cat, s, size) {
+// The bar is drawn at its true level; app.js animates from the previous level.
+function meter(cat, s, size) {
   return `
-    <span class="tube tube-${size} lv-${s.level}" aria-hidden="true">
-      <span class="tube-scale"><i>F</i><i>½</i><i>E</i></span>
-      <span class="tube-glass">
-        <span class="tube-fill" data-gauge="${esc(cat.id)}" data-fill="${s.fill}" style="transform: scaleY(${s.fill})"></span>
-        <span class="tube-ticks"></span>
-      </span>
+    <span class="meter meter-${size}" aria-hidden="true">
+      <span class="meter-fill" data-gauge="${esc(cat.id)}" data-fill="${s.fill}" style="transform: scaleX(${s.fill})"></span>
     </span>`;
 }
 
@@ -40,24 +36,37 @@ function tankCard(cat, now) {
   const label = `${cat.name}: ${eur(s.remaining)} left of ${eur(cat.amount, { cents: false })} this ${perWord(cat)}. ${TANK_LEVELS[s.level]}. Safe to spend today ${eur(s.safeToday)}. Open to log an expense.`;
   return `
     <button class="tank lv-${s.level}" type="button" data-act="open-tank" data-id="${esc(cat.id)}" aria-label="${esc(label)}">
-      ${tube(cat, s, 'sm')}
-      <span class="tank-read">
-        <span class="tank-top"><span class="tank-name">${esc(cat.name)}</span>${chip(s.level)}</span>
+      <span class="tank-top"><span class="tank-name">${esc(cat.name)}</span>${chip(s.level)}</span>
+      <span class="tank-amt">
         <span class="tank-rem num">${eur(s.remaining)}</span>
-        <span class="tank-of">of ${eur(cat.amount, { cents: false })} / ${perWord(cat)}</span>
-        <span class="tank-foot">
-          <span class="tank-safe"><span>Safe today</span><b class="num">${eur(s.safeToday)}</b></span>
-          <span class="tank-refill">${refillText(s)}</span>
-        </span>
+        <span class="tank-of">${s.remaining < 0 ? 'over' : 'left'} of ${eur(cat.amount, { cents: false })}</span>
+      </span>
+      ${meter(cat, s, 'sm')}
+      <span class="tank-foot">
+        <span><b class="num">${eur(s.safeToday)}</b> safe today</span>
+        <span>${refillText(s)}</span>
       </span>
     </button>`;
+}
+
+function weekCard(data, now) {
+  const w = weekSummary(data.cats, now);
+  if (!w) return '';
+  const resets = w.daysLeft === 1 ? 'Resets tomorrow' : `Resets ${shortDate(w.end, true)}`;
+  return `
+    <section class="panel week lv-${w.level}" aria-label="This week: ${eur(w.remaining)} left of ${eur(w.budget)}. ${eur(w.perDay)} a day. ${resets}.">
+      <span class="week-k">Left to spend this week</span>
+      <span class="week-amt"><span class="week-rem num">${eur(w.remaining)}</span><span class="tank-of">of ${eur(w.budget, { cents: false })}</span></span>
+      <span class="meter meter-lg" aria-hidden="true"><span class="meter-fill" data-gauge="__week" data-fill="${w.fill}" style="transform: scaleX(${w.fill})"></span></span>
+      <span class="week-foot"><span><b class="num">${eur(w.perDay)}</b> a day</span><span>${resets}</span></span>
+    </section>`;
 }
 
 function welcome(ctx) {
   if (!ctx.showWelcome) return '';
   return `
     <section class="notice" aria-label="Getting started">
-      <p><b>Pre-loaded with your numbers.</b> Rent €800, Factor €60/week, subscriptions €50, groceries €46, entertainment €100, drinks €24, with €1,362 coming in each month. Change anything in settings.</p>
+      <p><b>Your weekly plan:</b> €39 a week to spend (groceries €10.50, entertainment €23, drinks €5.50), resetting every Monday. Rent, Factor and subscriptions are fixed bills. Change anything in settings.</p>
       ${ctx.showInstall ? `<p class="notice-install">${icon.share}<span>Install it: tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>` : ''}
       <button class="btn ghost sm" type="button" data-act="dismiss-welcome">Got it</button>
     </section>`;
@@ -94,20 +103,20 @@ function burnPanel(data, now) {
          <button class="btn link" type="button" data-act="go-settings" data-focus="balance">Add balance</button>
        </div>`;
   return `
-    <section class="tele" aria-labelledby="burn-h">
+    <section class="panel tele" aria-labelledby="burn-h">
       <div class="tele-head">
-        <h2 id="burn-h">Monthly burn</h2>
+        <h2 id="burn-h">This month</h2>
         <span class="tele-total num">${eur(o.burn)}</span>
       </div>
       <div class="split" role="img" aria-label="${Math.round(fixedPct)}% of monthly spending is fixed bills">
         <i class="split-bills" style="width:${fixedPct.toFixed(1)}%"></i><i class="split-flex"></i>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-bills"></span>Locked bills</span>
+        <span class="tele-k"><span class="key key-bills"></span>Fixed bills</span>
         <span class="tele-v num">${eur(o.fixed)}</span>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-flex"></span>Tanks</span>
+        <span class="tele-k"><span class="key key-flex"></span>Budgets</span>
         <span class="tele-v num">${eur(o.flexible)}</span>
       </div>
       ${leftoverRow(o.leftover)}
@@ -144,15 +153,16 @@ export function homeView(data, now, ctx) {
         <button class="btn icon" type="button" data-act="go-settings" aria-label="Settings">${icon.gear}</button>
       </header>
       ${welcome(ctx)}
-      <section class="panel fuel" aria-labelledby="fuel-h">
-        <div class="sec-head"><h2 id="fuel-h">Tanks</h2><span>Tap to log spending</span></div>
+      ${weekCard(data, now)}
+      <section class="group" aria-labelledby="fuel-h">
+        <div class="sec-head"><h2 id="fuel-h">Budgets</h2><span>Tap one to log spending</span></div>
         ${tanks.length
           ? `<div class="tank-grid">${tanks.map((c) => tankCard(c, now)).join('')}</div>`
-          : `<p class="empty">No tanks yet. Add a weekly or monthly budget in settings.</p>`}
+          : `<p class="empty">No budgets yet. Add a weekly or monthly budget in settings.</p>`}
       </section>
       ${burnPanel(data, now)}
       <section class="bills" aria-labelledby="bills-h">
-        <div class="sec-head"><h2 id="bills-h">Locked bills</h2><span class="num">${eur(billTotal)}/mo</span></div>
+        <div class="sec-head"><h2 id="bills-h">Fixed bills</h2><span class="num">${eur(billTotal)}/mo</span></div>
         ${bills.length ? `<ul class="bill-list">${bills.map((c) => billRow(c, now)).join('')}</ul>` : '<p class="empty">No fixed bills.</p>'}
       </section>
     </div>`;
@@ -183,17 +193,15 @@ export function tankView(cat, now, ctx) {
       </header>
 
       <section class="panel gauge-panel" aria-label="${esc(cat.name)} status">
-        ${tube(cat, s, 'lg')}
-        <div class="gauge-read">
-          <span class="lbl">Left to spend</span>
-          <span class="big-rem num" data-count="${s.remaining}">${eur(s.remaining)}</span>
-          <span class="tank-of">of ${eur(cat.amount, { cents: false })} / ${perWord(cat)}</span>
-          <dl class="readouts">
-            <div class="ro hl"><dt>Safe today</dt><dd class="num">${eur(s.safeToday)}</dd></div>
-            <div class="ro"><dt>Spent</dt><dd class="num">${eur(s.spent)}</dd></div>
-            <div class="ro"><dt>Refills</dt><dd class="num">${s.daysLeft === 1 ? 'Tomorrow' : `${shortDate(s.end, true)} <small>· ${s.daysLeft}d</small>`}</dd></div>
-          </dl>
-        </div>
+        <span class="lbl">${s.remaining < 0 ? 'Over budget by' : 'Left to spend'}</span>
+        <span class="big-rem num" data-count="${s.remaining}">${eur(s.remaining)}</span>
+        <span class="tank-of">of ${eur(cat.amount, { cents: false })} per ${perWord(cat)}</span>
+        ${meter(cat, s, 'lg')}
+        <dl class="readouts">
+          <div class="ro hl"><dt>Safe to spend today</dt><dd class="num">${eur(s.safeToday)}</dd></div>
+          <div class="ro"><dt>Spent so far</dt><dd class="num">${eur(s.spent)}</dd></div>
+          <div class="ro"><dt>Resets</dt><dd class="num">${s.daysLeft === 1 ? 'Tomorrow' : `${shortDate(s.end, true)} <small>· in ${s.daysLeft} days</small>`}</dd></div>
+        </dl>
       </section>
 
       <form class="panel log" data-form="log" autocomplete="off" aria-labelledby="log-h">
@@ -221,7 +229,7 @@ export function tankView(cat, now, ctx) {
         ${s.txs.length
           ? `<ul class="tx-list">${s.txs.map((t) => txRow(t, ctx.openTx)).join('')}</ul>
              <p class="hint">Swipe left or tap an expense to delete it.</p>`
-          : `<p class="empty">Full tank. Nothing logged this ${perWord(cat)} yet.</p>`}
+          : `<p class="empty">Nothing logged this ${perWord(cat)} yet.</p>`}
       </section>
     </div>`;
 }
@@ -235,7 +243,7 @@ function editor(ed, confirm) {
   const isBill = ed.type === 'bill';
   const help = isBill
     ? `Fixed amount. Tick it as paid each ${ed.period === 'week' ? 'week' : 'month'}.`
-    : `Drains as you log spending. Refills ${ed.period === 'week' ? 'every Monday' : 'on the 1st'}.`;
+    : `Goes down as you log spending. Resets ${ed.period === 'week' ? 'every Monday' : 'on the 1st'}.`;
   const due = !isBill ? '' : ed.period === 'month'
     ? `<label class="field-wrap"><span class="lbl">Due day of month</span><input class="field num" name="dueDay" type="text" inputmode="numeric" value="${esc(ed.dueDay)}" placeholder="1–31"></label>`
     : `<div class="field-wrap"><span class="lbl">Due day</span>${seg('dueWd', [['0', 'M', 'Monday'], ['1', 'T', 'Tuesday'], ['2', 'W', 'Wednesday'], ['3', 'T', 'Thursday'], ['4', 'F', 'Friday'], ['5', 'S', 'Saturday'], ['6', 'S', 'Sunday']], String(ed.dueWd))}</div>`;
@@ -246,7 +254,7 @@ function editor(ed, confirm) {
       <label class="field-wrap"><span class="lbl">Amount</span>
         <span class="euro"><span class="euro-sign" aria-hidden="true">€</span><input class="field num" name="amount" type="text" inputmode="decimal" value="${esc(ed.amount)}" placeholder="0.00"></span>
       </label>
-      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Tank (drains)'], ['bill', 'Locked bill']], ed.type)}</div>
+      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Budget'], ['bill', 'Fixed bill']], ed.type)}</div>
       <div class="field-wrap"><span class="lbl">Period</span>${seg('period', [['week', 'Weekly'], ['month', 'Monthly']], ed.period)}</div>
       ${due}
       <p class="help">${help}</p>
@@ -262,7 +270,7 @@ function editor(ed, confirm) {
 function catRow(c) {
   return `
     <li class="cat">
-      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Tank' : 'Bill'}</span>
+      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Budget' : 'Bill'}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-amt num">${eur(c.amount, { cents: false })}<small>/${c.period === 'week' ? 'wk' : 'mo'}</small></span>
       <button class="btn link" type="button" data-act="edit-cat" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">Edit</button>
