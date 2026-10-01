@@ -9,12 +9,12 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
-// The plan as of v3: groceries, YFood and €100 savings are fixed costs; only
-// entertainment drains week by week. €1,362 in − €1,280 fixed ≈ €82/month ≈ €18.50/week.
+// The plan as of v4: food (Factor, groceries, YFood) and €100 savings are fixed costs;
+// personal spending is €23 a week (≈ €100 a month) and resets every Monday.
 const PLAN = [
-  { id: 'fun', name: 'Entertainment', type: 'tank', amount: 18.5, period: 'week' },
+  { id: 'fun', name: 'Personal costs', type: 'tank', amount: 23, period: 'week' },
   { id: 'rent', name: 'Rent', type: 'bill', amount: 800, period: 'month', due: 1 },
   // Weekly bill `due` is a weekday index where 0 = Monday.
   { id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 },
@@ -28,7 +28,7 @@ const PLAN = [
 // so it is safe to move it to the current plan; anything the user changed is left alone.
 const SHIPPED = {
   gro: [['tank', 'month', 46], ['tank', 'week', 10.5]],
-  fun: [['tank', 'month', 100], ['tank', 'week', 23]],
+  fun: [['tank', 'month', 100], ['tank', 'week', 23], ['tank', 'week', 18.5]],
   drinks: [['tank', 'month', 24], ['tank', 'week', 5.5]],
 };
 
@@ -39,7 +39,10 @@ function migrate(data) {
   if (data.v >= DATA_VERSION) return data;
   const cats = data.cats.map((c) => {
     const plan = PLAN.find((p) => p.id === c.id);
-    return plan && isUntouched(c) ? { ...c, ...plan, due: plan.due ?? null } : c;
+    if (plan && isUntouched(c)) return { ...c, ...plan, due: plan.due ?? null };
+    // Earlier versions called it 'Entertainment'; rename it but keep any amount the user set.
+    if (c.id === 'fun' && c.name === 'Entertainment') return { ...c, name: plan.name };
+    return c;
   });
   const missingSavings = !cats.some((c) => c.id === 'save');
   const save = PLAN.find((p) => p.id === 'save');
@@ -54,7 +57,6 @@ export function seedData() {
   return {
     v: DATA_VERSION,
     balance: null,
-    income: 1362, // €562 spending money + €800 rent, per month
     cats: PLAN.map((p) => ({ txs: [], paidKey: null, due: null, ...p })),
   };
 }
@@ -83,7 +85,7 @@ export function validateData(raw) {
       txs,
     });
   }
-  return { v: isNum(raw.v) ? raw.v : 1, balance: isNum(raw.balance) ? raw.balance : null, income: isNum(raw.income) ? raw.income : null, cats };
+  return { v: isNum(raw.v) ? raw.v : 1, balance: isNum(raw.balance) ? raw.balance : null, cats };
 }
 
 export function loadData() {
@@ -226,6 +228,5 @@ export function overview(data, now) {
     const days = Math.floor(months * 365 / 12);
     runway = { months, weeks: Math.floor(days / 7), until: new Date(now.getTime() + days * DAY_MS) };
   }
-  const leftover = isNum(data.income) ? data.income - burn : null;
-  return { burn, fixed, flexible: burn - fixed, runway, leftover };
+  return { burn, perWeek: burn / WEEKS_PER_MONTH, fixed, flexible: burn - fixed, runway };
 }

@@ -3,7 +3,7 @@ import {
 } from './store.js';
 import { homeView, tankView, settingsView } from './views.js';
 
-const VERSION = '3.0.0';
+const VERSION = '4.0.0';
 const HINT_KEY = 'budget.welcomeDone';
 const TOAST_MS = 5000;
 const SWIPE_OPEN_PX = -88;
@@ -276,7 +276,7 @@ async function importBackup(file) {
   try {
     const data = validateData(JSON.parse(await file.text()));
     if (!data) throw new Error('not a budget backup');
-    commit((d) => { d.balance = data.balance; d.income = data.income; d.cats = data.cats; }, { undoable: true });
+    commit((d) => { d.balance = data.balance; d.cats = data.cats; }, { undoable: true });
     shown.fill.clear();
     shown.remaining.clear();
     render();
@@ -328,7 +328,7 @@ const actions = {
     toast('All expenses cleared', { undo: true });
   }),
   reset: () => confirmTwice('reset', () => {
-    commit((d) => { const fresh = seedData(); d.balance = fresh.balance; d.income = fresh.income; d.cats = fresh.cats; }, { undoable: true });
+    commit((d) => { const fresh = seedData(); d.balance = fresh.balance; d.cats = fresh.cats; }, { undoable: true });
     shown.fill.clear();
     shown.remaining.clear();
     toast('Reset to starting numbers', { undo: true });
@@ -353,20 +353,17 @@ root.addEventListener('submit', (e) => {
   if (form.dataset.form === 'editor') saveEditor();
 });
 
-const MONEY_LABELS = { balance: 'Balance', income: 'Monthly income' };
-
-function saveMoneyField(field, value) {
+function saveBalance(value) {
   const raw = value.trim();
   const n = parseAmount(raw);
-  const label = MONEY_LABELS[field];
-  if (raw && !Number.isFinite(n)) { toast(`${label} must be a number.`, { error: true }); return; }
-  commit((d) => { d[field] = raw ? n : null; });
-  toast(raw ? `${label} set to ${eur(n)}` : `${label} cleared`);
+  if (raw && !Number.isFinite(n)) { toast('Balance must be a number.', { error: true }); return; }
+  commit((d) => { d.balance = raw ? n : null; });
+  toast(raw ? `Balance set to ${eur(n)}` : 'Balance cleared');
 }
 
 root.addEventListener('change', (e) => {
   const input = e.target.dataset.input;
-  if (input === 'balance' || input === 'income') saveMoneyField(input, e.target.value);
+  if (input === 'balance') saveBalance(e.target.value);
   if (input === 'import') importBackup(e.target.files?.[0]);
 });
 

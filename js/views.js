@@ -66,24 +66,10 @@ function welcome(ctx) {
   if (!ctx.showWelcome) return '';
   return `
     <section class="notice" aria-label="Getting started">
-      <p><b>Your plan:</b> €18.50 a week for entertainment, resetting every Monday. Rent, Factor, subscriptions, groceries, YFood and €100 savings are fixed costs. Change anything in settings.</p>
+      <p><b>Your plan:</b> €23 a week for personal costs, resetting every Monday. Rent, Factor, subscriptions, groceries, YFood and €100 savings are fixed costs. Change anything in settings.</p>
       ${ctx.showInstall ? `<p class="notice-install">${icon.share}<span>Install it: tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>` : ''}
       <button class="btn ghost sm" type="button" data-act="dismiss-welcome">Got it</button>
     </section>`;
-}
-
-function leftoverRow(leftover) {
-  if (leftover === null) {
-    return `<div class="tele-row">
-      <span class="tele-k">Left over each month</span>
-      <button class="btn link" type="button" data-act="go-settings" data-focus="income">Add income</button>
-    </div>`;
-  }
-  const tone = leftover < 0 ? 'neg' : leftover < 50 ? 'thin' : 'pos';
-  return `<div class="tele-row leftover lo-${tone}">
-    <span class="tele-k">${leftover < 0 ? 'Short each month' : 'Left over each month'}</span>
-    <span class="tele-v num">${eur(Math.abs(leftover))}</span>
-  </div>`;
 }
 
 function burnPanel(data, now) {
@@ -104,22 +90,22 @@ function burnPanel(data, now) {
        </div>`;
   return `
     <section class="panel tele" aria-labelledby="burn-h">
-      <div class="tele-head">
-        <h2 id="burn-h">This month</h2>
-        <span class="tele-total num">${eur(o.burn)}</span>
+      <h2 id="burn-h" class="tele-title">What you need</h2>
+      <div class="need">
+        <div class="need-cell"><span class="need-k">Per month</span><span class="need-v num">${eur(o.burn)}</span></div>
+        <div class="need-cell"><span class="need-k">Per week</span><span class="need-v num">${eur(o.perWeek)}</span></div>
       </div>
       <div class="split" role="img" aria-label="${Math.round(fixedPct)}% of monthly money out is fixed costs">
         <i class="split-bills" style="width:${fixedPct.toFixed(1)}%"></i><i class="split-flex"></i>
       </div>
       <div class="tele-row">
         <span class="tele-k"><span class="key key-bills"></span>Fixed costs</span>
-        <span class="tele-v num">${eur(o.fixed)}</span>
+        <span class="tele-v num">${eur(o.fixed)}<small>/mo</small></span>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-flex"></span>Spending money</span>
-        <span class="tele-v num">${eur(o.flexible)}</span>
+        <span class="tele-k"><span class="key key-flex"></span>Personal costs</span>
+        <span class="tele-v num">${eur(o.flexible)}<small>/mo</small></span>
       </div>
-      ${leftoverRow(o.leftover)}
       ${runway}
     </section>`;
 }
@@ -155,7 +141,7 @@ export function homeView(data, now, ctx) {
       ${welcome(ctx)}
       ${weekCard(data, now)}
       <section class="group" aria-labelledby="fuel-h">
-        <div class="sec-head"><h2 id="fuel-h">Spending money</h2><span>Tap to log spending</span></div>
+        <div class="sec-head"><h2 id="fuel-h">Personal spending</h2><span>Tap to log spending</span></div>
         ${tanks.length
           ? `<div class="tank-grid">${tanks.map((c) => tankCard(c, now)).join('')}</div>`
           : `<p class="empty">No budgets yet. Add a weekly or monthly budget in settings.</p>`}
@@ -254,7 +240,7 @@ function editor(ed, confirm) {
       <label class="field-wrap"><span class="lbl">Amount</span>
         <span class="euro"><span class="euro-sign" aria-hidden="true">€</span><input class="field num" name="amount" type="text" inputmode="decimal" value="${esc(ed.amount)}" placeholder="0.00"></span>
       </label>
-      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Spending'], ['bill', 'Fixed cost']], ed.type)}</div>
+      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Personal (goes down)'], ['bill', 'Fixed cost']], ed.type)}</div>
       <div class="field-wrap"><span class="lbl">Period</span>${seg('period', [['week', 'Weekly'], ['month', 'Monthly']], ed.period)}</div>
       ${due}
       <p class="help">${help}</p>
@@ -270,7 +256,7 @@ function editor(ed, confirm) {
 function catRow(c) {
   return `
     <li class="cat">
-      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Spend' : 'Fixed'}</span>
+      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Personal' : 'Fixed'}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-amt num">${eur(c.amount, { cents: false })}<small>/${c.period === 'week' ? 'wk' : 'mo'}</small></span>
       <button class="btn link" type="button" data-act="edit-cat" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">Edit</button>
@@ -279,7 +265,6 @@ function catRow(c) {
 
 export function settingsView(data, ctx) {
   const balance = typeof data.balance === 'number' ? String(data.balance) : '';
-  const income = typeof data.income === 'number' ? String(data.income) : '';
   return `
     <div class="screen" data-screen="settings">
       <header class="top bar">
@@ -287,16 +272,6 @@ export function settingsView(data, ctx) {
         <h1 class="bar-title">Settings</h1>
         <span class="bar-spacer" aria-hidden="true"></span>
       </header>
-
-      <section class="panel" aria-labelledby="inc-h">
-        <div class="sec-head"><h2 id="inc-h">Money in per month</h2><span>Optional</span></div>
-        <label class="euro">
-          <span class="sr">Money coming in per month in euro</span>
-          <span class="euro-sign" aria-hidden="true">€</span>
-          <input class="field num" id="income" data-input="income" type="text" inputmode="decimal" value="${esc(income)}" placeholder="e.g. 1362" autocomplete="off">
-        </label>
-        <p class="help">What arrives each month, rent included. The home screen shows what is left after every bill and tank.</p>
-      </section>
 
       <section class="panel" aria-labelledby="bal-h">
         <div class="sec-head"><h2 id="bal-h">Total balance</h2><span>Optional</span></div>
