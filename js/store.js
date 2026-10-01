@@ -203,20 +203,37 @@ export function billDueDate(cat, ref) {
   return new Date(ref.getFullYear(), ref.getMonth(), Math.min(Math.max(1, cat.due || 1), daysInMonth));
 }
 
+function dueText(cat, now) {
+  const due = billDueDate(cat, now);
+  const diff = dayDiff(due, now);
+  if (diff < 0) return { tone: 'late', text: `Overdue since ${shortDate(due)}` };
+  if (diff === 0) return { tone: 'soon', text: 'Due today' };
+  const when = diff === 1 ? 'tomorrow' : `in ${diff} days`;
+  return { tone: diff <= 3 ? 'soon' : 'idle', text: `Due ${shortDate(due, cat.period === 'week')} · ${when}` };
+}
+
+// A fixed cost is paid either with the one-tap switch (paidKey) or by logging
+// payments that add up to the full amount, e.g. YFood €24 every two weeks.
 export function billStatus(cat, now) {
   const { start, end } = periodBounds(cat.period, now);
   const key = ymd(start);
-  const paid = cat.paidKey === key;
+  const txs = cat.txs
+    .filter((t) => t.ts >= start.getTime() && t.ts < end.getTime())
+    .sort((a, b) => b.ts - a.ts);
+  const logged = Math.round(txs.reduce((sum, t) => sum + t.amt, 0) * 100) / 100;
+  const paidInFull = cat.paidKey === key;
+  const paidAmt = paidInFull ? Math.max(cat.amount, logged) : logged;
+  const paid = paidInFull || paidAmt >= cat.amount - 0.004;
+  const toPay = Math.max(0, Math.round((cat.amount - paidAmt) * 100) / 100);
+  const base = { key, paid, txs, logged, paidAmt, toPay, end, fill: Math.min(1, cat.amount > 0 ? paidAmt / cat.amount : 0) };
   if (paid) {
     const next = billDueDate(cat, new Date(end.getTime() + 3600000));
-    return { key, paid, tone: 'ok', text: `Paid · next ${shortDate(next, cat.period === 'week')}` };
+    return { ...base, tone: 'ok', text: `Paid · next ${shortDate(next, cat.period === 'week')}` };
   }
-  const due = billDueDate(cat, now);
-  const diff = dayDiff(due, now);
-  if (diff < 0) return { key, paid, tone: 'late', text: `Overdue since ${shortDate(due)}` };
-  if (diff === 0) return { key, paid, tone: 'soon', text: 'Due today' };
-  const when = diff === 1 ? 'tomorrow' : `in ${diff} days`;
-  return { key, paid, tone: diff <= 3 ? 'soon' : 'idle', text: `Due ${shortDate(due, cat.period === 'week')} · ${when}` };
+  const d = dueText(cat, now);
+  return paidAmt > 0
+    ? { ...base, tone: d.tone === 'late' ? 'late' : 'part', text: `${eur(paidAmt)} of ${eur(cat.amount, { cents: false })} paid · ${d.text}` }
+    : { ...base, ...d };
 }
 
 export function overview(data, now) {

@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump CACHE when any listed file changes.
-const CACHE = 'budget-v6.0.0';
+const CACHE = 'budget-v7.0.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/store.js', './js/views.js',

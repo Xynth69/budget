@@ -13,6 +13,7 @@ const icon = {
   check: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   trash: '<svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   plus: '<svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  chevron: '<svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
   share: '<svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
 };
 
@@ -112,14 +113,19 @@ function burnPanel(data, now) {
 
 function billRow(cat, now) {
   const b = billStatus(cat, now);
+  const partial = !b.paid && b.paidAmt > 0;
   return `
     <li class="bill ${b.paid ? 'is-paid' : ''}">
-      <span class="bill-main">
-        <span class="bill-name">${icon.lock}<span>${esc(cat.name)}</span></span>
-        <span class="bill-due due-${b.tone}">${esc(b.text)}</span>
-      </span>
-      <span class="bill-amt num">${eur(cat.amount, { cents: false })}<small>/${cat.period === 'week' ? 'wk' : 'mo'}</small></span>
-      <button class="switch" type="button" role="switch" aria-checked="${b.paid}" data-act="toggle-bill" data-id="${esc(cat.id)}" aria-label="${esc(cat.name)} paid this ${perWord(cat)}">
+      <button class="bill-open" type="button" data-act="open-bill" data-id="${esc(cat.id)}" aria-label="${esc(cat.name)}, ${eur(cat.amount)} per ${perWord(cat)}. ${esc(b.text)}. Open to log a payment">
+        <span class="bill-main">
+          <span class="bill-name"><span>${esc(cat.name)}</span></span>
+          <span class="bill-due due-${b.tone}">${esc(b.text)}</span>
+          ${partial ? `<span class="meter meter-xs" aria-hidden="true"><span class="meter-fill" style="transform: scaleX(${b.fill})"></span></span>` : ''}
+        </span>
+        <span class="bill-amt num">${eur(cat.amount, { cents: false })}<small>/${cat.period === 'week' ? 'wk' : 'mo'}</small></span>
+        <span class="bill-chev">${icon.chevron}</span>
+      </button>
+      <button class="switch" type="button" role="switch" aria-checked="${b.paid}" data-act="toggle-bill" data-id="${esc(cat.id)}" aria-label="${esc(cat.name)} paid in full this ${perWord(cat)}">
         <span class="switch-knob">${icon.check}</span>
       </button>
     </li>`;
@@ -154,7 +160,7 @@ export function homeView(data, now, ctx) {
     </div>`;
 }
 
-function txRow(tx, openId) {
+function txRow(tx, openId, sign = '−') {
   const d = new Date(tx.ts);
   const time = `${shortDate(d, true)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   const open = openId === tx.id;
@@ -163,9 +169,62 @@ function txRow(tx, openId) {
       <button class="tx-del" type="button" data-act="del-tx" data-id="${esc(tx.id)}" tabindex="${open ? 0 : -1}" aria-label="Delete ${eur(tx.amt)} ${esc(tx.note || 'expense')}">${icon.trash}<span>Delete</span></button>
       <button class="tx-front" type="button" data-act="reveal-tx" data-id="${esc(tx.id)}" aria-expanded="${open}" aria-label="${esc(tx.note || 'Expense')}, ${eur(tx.amt)}, ${time}. Show delete">
         <span class="tx-main"><span class="tx-note">${esc(tx.note || 'Expense')}</span><span class="tx-when num">${time}</span></span>
-        <span class="tx-amt num">−${eur(tx.amt)}</span>
+        <span class="tx-amt num">${sign}${eur(tx.amt)}</span>
       </button>
     </li>`;
+}
+
+export function billView(cat, now, ctx) {
+  const b = billStatus(cat, now);
+  const per = perWord(cat);
+  const quick = [...new Set([cat.amount / 2, b.toPay].map((n) => Math.round(n * 100) / 100))].filter((n) => n > 0);
+  return `
+    <div class="screen lv-${b.paid ? 'nom' : 'cau'}" data-screen="bill">
+      <header class="top bar">
+        <button class="btn link back" type="button" data-act="go-home">${icon.back}<span>Back</span></button>
+        <h1 class="bar-title">${esc(cat.name)}</h1>
+        <span class="chip lv-${b.paid ? 'nom' : 'cau'}"><span class="chip-dot" aria-hidden="true"></span>${b.paid ? 'Paid' : `${eur(b.toPay)} to pay`}</span>
+      </header>
+
+      <section class="panel gauge-panel bill-panel" aria-label="${esc(cat.name)} payments">
+        <span class="lbl">Paid this ${per}</span>
+        <span class="big-rem num" data-count="${b.paidAmt}">${eur(b.paidAmt)}</span>
+        <span class="tank-of">of ${eur(cat.amount)} per ${per}</span>
+        ${meter(cat, { fill: b.fill }, 'lg')}
+        <dl class="readouts">
+          <div class="ro hl"><dt>Still to pay</dt><dd class="num">${eur(b.toPay)}</dd></div>
+          <div class="ro"><dt>Status</dt><dd class="due-${b.tone === 'part' ? 'soon' : b.tone}">${esc(b.text.split(' · ').slice(-1)[0])}</dd></div>
+        </dl>
+      </section>
+
+      <form class="panel log" data-form="log" autocomplete="off" aria-labelledby="pay-h">
+        <h2 id="pay-h">Log a payment</h2>
+        <label class="field-wrap">
+          <span class="lbl">Note <span class="opt">optional</span></span>
+          <input class="field" name="note" type="text" maxlength="60" placeholder="e.g. 12-pack" enterkeyhint="next">
+        </label>
+        ${quick.length ? `<div class="quick quick-${quick.length}" role="group" aria-label="Quick amounts">
+          ${quick.map((n) => `<button class="btn key" type="button" data-act="quick" data-amt="${n}">${eur(n, { cents: false })}${n === b.toPay ? '<small>rest</small>' : ''}</button>`).join('')}
+        </div>` : ''}
+        <div class="custom">
+          <label class="euro">
+            <span class="sr">Payment amount in euro</span>
+            <span class="euro-sign" aria-hidden="true">€</span>
+            <input class="field num" name="amount" type="text" inputmode="decimal" placeholder="Other amount" enterkeyhint="done">
+          </label>
+          <button class="btn primary" type="submit">Log</button>
+        </div>
+        <p class="form-err" role="alert" hidden></p>
+      </form>
+
+      <section class="history" aria-labelledby="pays-h">
+        <div class="sec-head"><h2 id="pays-h">Payments this ${per}</h2><span class="num">${b.txs.length} · ${eur(b.logged)}</span></div>
+        ${b.txs.length
+          ? `<ul class="tx-list">${b.txs.map((t) => txRow(t, ctx.openTx, '')).join('')}</ul>
+             <p class="hint">Swipe left or tap a payment to delete it.</p>`
+          : `<p class="empty">${b.paid ? 'Marked as paid in full.' : `No payments logged this ${per} yet.`}</p>`}
+      </section>
+    </div>`;
 }
 
 export function tankView(cat, now, ctx) {

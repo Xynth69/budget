@@ -1,9 +1,9 @@
 import {
   loadData, saveData, seedData, validateData, uid, parseAmount, eur, tankStatus, billStatus,
 } from './store.js';
-import { homeView, tankView, settingsView } from './views.js';
+import { homeView, tankView, billView, settingsView } from './views.js';
 
-const VERSION = '6.0.0';
+const VERSION = '7.0.0';
 const HINT_KEY = 'budget.welcomeDone';
 const TOAST_MS = 5000;
 const SWIPE_OPEN_PX = -88;
@@ -48,15 +48,16 @@ function commit(mutate, { undoable = false } = {}) {
 }
 
 function navigate(view, sel = null) {
-  const hash = view === 'tank' ? `#/tank/${encodeURIComponent(sel)}` : view === 'settings' ? '#/settings' : '#/';
+  const hash = view === 'tank' || view === 'bill' ? `#/${view}/${encodeURIComponent(sel)}` : view === 'settings' ? '#/settings' : '#/';
   if (location.hash !== hash) location.hash = hash;
   else route();
 }
 
 function route() {
   const [, view, id] = (location.hash || '#/').split('/');
-  const cat = view === 'tank' ? state.data.cats.find((c) => c.id === decodeURIComponent(id || '') && c.type === 'tank') : null;
-  state.view = cat ? 'tank' : view === 'settings' ? 'settings' : 'home';
+  const type = { tank: 'tank', bill: 'bill' }[view];
+  const cat = type ? state.data.cats.find((c) => c.id === decodeURIComponent(id || '') && c.type === type) : null;
+  state.view = cat ? view : view === 'settings' ? 'settings' : 'home';
   state.sel = cat ? cat.id : null;
   state.openTx = null;
   state.confirm = null;
@@ -91,6 +92,7 @@ function render({ enter = false } = {}) {
   const ctx = viewContext(now);
   const cat = state.data.cats.find((c) => c.id === state.sel);
   if (state.view === 'tank' && cat) root.innerHTML = tankView(cat, now, ctx);
+  else if (state.view === 'bill' && cat) root.innerHTML = billView(cat, now, ctx);
   else if (state.view === 'settings') root.innerHTML = settingsView(state.data, ctx);
   else root.innerHTML = homeView(state.data, now, ctx);
   if (enter && !reduceMotion.matches) root.firstElementChild?.classList.add('is-entering');
@@ -167,8 +169,17 @@ function logExpense(amount) {
     d.cats.find((c) => c.id === cat.id).txs.push({ id: uid(), amt: amount, note, ts: Date.now() });
   }, { undoable: true });
   render();
-  const left = tankStatus(state.data.cats.find((c) => c.id === cat.id), new Date()).remaining;
-  toast(`Logged ${eur(amount)} · ${left < 0 ? `${eur(-left)} over` : `${eur(left)} left`}`, { undo: true });
+  toast(loggedMessage(state.data.cats.find((c) => c.id === cat.id), amount), { undo: true });
+}
+
+function loggedMessage(cat, amount) {
+  const now = new Date();
+  if (cat.type === 'bill') {
+    const b = billStatus(cat, now);
+    return `Paid ${eur(amount)} · ${b.paid ? `${cat.name} fully paid` : `${eur(b.toPay)} still to pay`}`;
+  }
+  const left = tankStatus(cat, now).remaining;
+  return `Logged ${eur(amount)} · ${left < 0 ? `${eur(-left)} over` : `${eur(left)} left`}`;
 }
 
 function showFormError(form, message) {
@@ -185,15 +196,27 @@ function deleteTx(id) {
   }, { undoable: true });
   state.openTx = null;
   render();
-  toast('Expense deleted', { undo: true });
+  toast(state.view === 'bill' ? 'Payment deleted' : 'Expense deleted', { undo: true });
 }
 
 function toggleBill(id) {
   const cat = state.data.cats.find((c) => c.id === id);
   if (!cat) return;
   const b = billStatus(cat, new Date());
-  commit((d) => { d.cats.find((c) => c.id === id).paidKey = b.paid ? null : b.key; });
+  if (!b.paid) {
+    commit((d) => { d.cats.find((c) => c.id === id).paidKey = b.key; });
+    render();
+    return;
+  }
+  // Switching off clears this period's payments too, so the cost shows as unpaid again.
+  const ids = new Set(b.txs.map((t) => t.id));
+  commit((d) => {
+    const c = d.cats.find((x) => x.id === id);
+    c.paidKey = null;
+    c.txs = c.txs.filter((t) => !ids.has(t.id));
+  }, { undoable: ids.size > 0 });
   render();
+  if (ids.size) toast(`${cat.name} marked unpaid`, { undo: true });
 }
 
 // ── Settings: category editor ──
@@ -295,6 +318,7 @@ const actions = {
     if (el.dataset.focus) requestAnimationFrame(() => document.getElementById(el.dataset.focus)?.focus());
   },
   'open-tank': (el) => navigate('tank', el.dataset.id),
+  'open-bill': (el) => navigate('bill', el.dataset.id),
   'dismiss-welcome': () => { state.welcomeDone = true; writeFlag(HINT_KEY); render(); },
   quick: (el) => logExpense(Number(el.dataset.amt)),
   'toggle-bill': (el) => toggleBill(el.dataset.id),
