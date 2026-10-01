@@ -9,35 +9,53 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-const DATA_VERSION = 2;
-// Weekly budgets: the monthly plan (€46 / €100 / €24) ÷ 4.33, rounded down to 50 cents.
-const WEEKLY_SEED = [['gro', 'Groceries', 10.5], ['fun', 'Entertainment', 23], ['drinks', 'Drinks', 5.5]];
-const MONTHLY_V1 = { gro: 46, fun: 100, drinks: 24 };
+const DATA_VERSION = 3;
 
-// v1 shipped these budgets as monthly. Switch them to weekly only if they are still untouched.
+// The plan as of v3: groceries, YFood and €100 savings are fixed costs; only
+// entertainment drains week by week. €1,362 in − €1,280 fixed ≈ €82/month ≈ €18.50/week.
+const PLAN = [
+  { id: 'fun', name: 'Entertainment', type: 'tank', amount: 18.5, period: 'week' },
+  { id: 'rent', name: 'Rent', type: 'bill', amount: 800, period: 'month', due: 1 },
+  // Weekly bill `due` is a weekday index where 0 = Monday.
+  { id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 },
+  { id: 'subs', name: 'Subscriptions', type: 'bill', amount: 50, period: 'month', due: 15 },
+  { id: 'gro', name: 'Groceries', type: 'bill', amount: 46, period: 'month', due: 1 },
+  { id: 'drinks', name: 'YFood', type: 'bill', amount: 24, period: 'month', due: 1 },
+  { id: 'save', name: 'Savings', type: 'bill', amount: 100, period: 'month', due: 1 },
+];
+
+// Shapes earlier versions shipped. A category still in one of these was never edited,
+// so it is safe to move it to the current plan; anything the user changed is left alone.
+const SHIPPED = {
+  gro: [['tank', 'month', 46], ['tank', 'week', 10.5]],
+  fun: [['tank', 'month', 100], ['tank', 'week', 23]],
+  drinks: [['tank', 'month', 24], ['tank', 'week', 5.5]],
+};
+
+const isUntouched = (c) => (SHIPPED[c.id] || []).some(([type, period, amount]) =>
+  c.type === type && c.period === period && c.amount === amount);
+
 function migrate(data) {
   if (data.v >= DATA_VERSION) return data;
   const cats = data.cats.map((c) => {
-    const seed = WEEKLY_SEED.find(([id]) => id === c.id);
-    const untouched = seed && c.type === 'tank' && c.period === 'month' && c.amount === MONTHLY_V1[c.id];
-    return untouched ? { ...c, period: 'week', amount: seed[2] } : c;
+    const plan = PLAN.find((p) => p.id === c.id);
+    return plan && isUntouched(c) ? { ...c, ...plan, due: plan.due ?? null } : c;
   });
-  return { ...data, v: DATA_VERSION, cats };
+  const missingSavings = !cats.some((c) => c.id === 'save');
+  const save = PLAN.find((p) => p.id === 'save');
+  return {
+    ...data,
+    v: DATA_VERSION,
+    cats: missingSavings ? [...cats, { txs: [], paidKey: null, ...save }] : cats,
+  };
 }
 
 export function seedData() {
-  const cat = (c) => ({ txs: [], paidKey: null, due: null, ...c });
   return {
     v: DATA_VERSION,
     balance: null,
     income: 1362, // €562 spending money + €800 rent, per month
-    cats: [
-      ...WEEKLY_SEED.map(([id, name, amount]) => cat({ id, name, type: 'tank', amount, period: 'week' })),
-      cat({ id: 'rent', name: 'Rent', type: 'bill', amount: 800, period: 'month', due: 1 }),
-      // Weekly bill `due` is a weekday index where 0 = Monday.
-      cat({ id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 }),
-      cat({ id: 'subs', name: 'Subscriptions', type: 'bill', amount: 50, period: 'month', due: 15 }),
-    ],
+    cats: PLAN.map((p) => ({ txs: [], paidKey: null, due: null, ...p })),
   };
 }
 

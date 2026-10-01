@@ -66,7 +66,7 @@ function welcome(ctx) {
   if (!ctx.showWelcome) return '';
   return `
     <section class="notice" aria-label="Getting started">
-      <p><b>Your weekly plan:</b> €39 a week to spend (groceries €10.50, entertainment €23, drinks €5.50), resetting every Monday. Rent, Factor and subscriptions are fixed bills. Change anything in settings.</p>
+      <p><b>Your plan:</b> €18.50 a week for entertainment, resetting every Monday. Rent, Factor, subscriptions, groceries, YFood and €100 savings are fixed costs. Change anything in settings.</p>
       ${ctx.showInstall ? `<p class="notice-install">${icon.share}<span>Install it: tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>` : ''}
       <button class="btn ghost sm" type="button" data-act="dismiss-welcome">Got it</button>
     </section>`;
@@ -108,15 +108,15 @@ function burnPanel(data, now) {
         <h2 id="burn-h">This month</h2>
         <span class="tele-total num">${eur(o.burn)}</span>
       </div>
-      <div class="split" role="img" aria-label="${Math.round(fixedPct)}% of monthly spending is fixed bills">
+      <div class="split" role="img" aria-label="${Math.round(fixedPct)}% of monthly money out is fixed costs">
         <i class="split-bills" style="width:${fixedPct.toFixed(1)}%"></i><i class="split-flex"></i>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-bills"></span>Fixed bills</span>
+        <span class="tele-k"><span class="key key-bills"></span>Fixed costs</span>
         <span class="tele-v num">${eur(o.fixed)}</span>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-flex"></span>Budgets</span>
+        <span class="tele-k"><span class="key key-flex"></span>Spending money</span>
         <span class="tele-v num">${eur(o.flexible)}</span>
       </div>
       ${leftoverRow(o.leftover)}
@@ -155,15 +155,15 @@ export function homeView(data, now, ctx) {
       ${welcome(ctx)}
       ${weekCard(data, now)}
       <section class="group" aria-labelledby="fuel-h">
-        <div class="sec-head"><h2 id="fuel-h">Budgets</h2><span>Tap one to log spending</span></div>
+        <div class="sec-head"><h2 id="fuel-h">Spending money</h2><span>Tap to log spending</span></div>
         ${tanks.length
           ? `<div class="tank-grid">${tanks.map((c) => tankCard(c, now)).join('')}</div>`
           : `<p class="empty">No budgets yet. Add a weekly or monthly budget in settings.</p>`}
       </section>
       ${burnPanel(data, now)}
       <section class="bills" aria-labelledby="bills-h">
-        <div class="sec-head"><h2 id="bills-h">Fixed bills</h2><span class="num">${eur(billTotal)}/mo</span></div>
-        ${bills.length ? `<ul class="bill-list">${bills.map((c) => billRow(c, now)).join('')}</ul>` : '<p class="empty">No fixed bills.</p>'}
+        <div class="sec-head"><h2 id="bills-h">Fixed costs</h2><span class="num">${eur(billTotal)}/mo</span></div>
+        ${bills.length ? `<ul class="bill-list">${bills.map((c) => billRow(c, now)).join('')}</ul>` : '<p class="empty">No fixed costs.</p>'}
       </section>
     </div>`;
 }
@@ -254,7 +254,7 @@ function editor(ed, confirm) {
       <label class="field-wrap"><span class="lbl">Amount</span>
         <span class="euro"><span class="euro-sign" aria-hidden="true">€</span><input class="field num" name="amount" type="text" inputmode="decimal" value="${esc(ed.amount)}" placeholder="0.00"></span>
       </label>
-      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Budget'], ['bill', 'Fixed bill']], ed.type)}</div>
+      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Spending'], ['bill', 'Fixed cost']], ed.type)}</div>
       <div class="field-wrap"><span class="lbl">Period</span>${seg('period', [['week', 'Weekly'], ['month', 'Monthly']], ed.period)}</div>
       ${due}
       <p class="help">${help}</p>
@@ -270,7 +270,7 @@ function editor(ed, confirm) {
 function catRow(c) {
   return `
     <li class="cat">
-      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Budget' : 'Bill'}</span>
+      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Spend' : 'Fixed'}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-amt num">${eur(c.amount, { cents: false })}<small>/${c.period === 'week' ? 'wk' : 'mo'}</small></span>
       <button class="btn link" type="button" data-act="edit-cat" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">Edit</button>
