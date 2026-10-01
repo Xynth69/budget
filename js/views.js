@@ -66,7 +66,7 @@ function welcome(ctx) {
   if (!ctx.showWelcome) return '';
   return `
     <section class="notice" aria-label="Getting started">
-      <p><b>Your plan:</b> €23 a week for personal costs, resetting every Monday. Rent, Factor, subscriptions, groceries, YFood and €100 savings are fixed costs. Change anything in settings.</p>
+      <p><b>Your plan:</b> €23 a week for personal costs (resets Monday) and €46 a month for groceries (resets on the 1st). Rent, Factor, subscriptions, YFood and €100 savings are fixed costs. Change anything in settings.</p>
       ${ctx.showInstall ? `<p class="notice-install">${icon.share}<span>Install it: tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>` : ''}
       <button class="btn ghost sm" type="button" data-act="dismiss-welcome">Got it</button>
     </section>`;
@@ -103,7 +103,7 @@ function burnPanel(data, now) {
         <span class="tele-v num">${eur(o.fixed)}<small>/mo</small></span>
       </div>
       <div class="tele-row">
-        <span class="tele-k"><span class="key key-flex"></span>Personal costs</span>
+        <span class="tele-k"><span class="key key-flex"></span>Budgets</span>
         <span class="tele-v num">${eur(o.flexible)}<small>/mo</small></span>
       </div>
       ${runway}
@@ -141,7 +141,7 @@ export function homeView(data, now, ctx) {
       ${welcome(ctx)}
       ${weekCard(data, now)}
       <section class="group" aria-labelledby="fuel-h">
-        <div class="sec-head"><h2 id="fuel-h">Personal spending</h2><span>Tap to log spending</span></div>
+        <div class="sec-head"><h2 id="fuel-h">Budgets</h2><span>Tap to log spending</span></div>
         ${tanks.length
           ? `<div class="tank-grid">${tanks.map((c) => tankCard(c, now)).join('')}</div>`
           : `<p class="empty">No budgets yet. Add a weekly or monthly budget in settings.</p>`}
@@ -240,7 +240,7 @@ function editor(ed, confirm) {
       <label class="field-wrap"><span class="lbl">Amount</span>
         <span class="euro"><span class="euro-sign" aria-hidden="true">€</span><input class="field num" name="amount" type="text" inputmode="decimal" value="${esc(ed.amount)}" placeholder="0.00"></span>
       </label>
-      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Personal (goes down)'], ['bill', 'Fixed cost']], ed.type)}</div>
+      <div class="field-wrap"><span class="lbl">Type</span>${seg('type', [['tank', 'Budget (bar)'], ['bill', 'Fixed cost']], ed.type)}</div>
       <div class="field-wrap"><span class="lbl">Period</span>${seg('period', [['week', 'Weekly'], ['month', 'Monthly']], ed.period)}</div>
       ${due}
       <p class="help">${help}</p>
@@ -256,7 +256,7 @@ function editor(ed, confirm) {
 function catRow(c) {
   return `
     <li class="cat">
-      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Personal' : 'Fixed'}</span>
+      <span class="cat-type ${c.type === 'tank' ? 'is-tank' : ''}">${c.type === 'tank' ? 'Budget' : 'Fixed'}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-amt num">${eur(c.amount, { cents: false })}<small>/${c.period === 'week' ? 'wk' : 'mo'}</small></span>
       <button class="btn link" type="button" data-act="edit-cat" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">Edit</button>

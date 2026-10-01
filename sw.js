@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump CACHE when any listed file changes.
-const CACHE = 'budget-v5.0.0';
+const CACHE = 'budget-v6.0.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/store.js', './js/views.js',
@@ -19,10 +19,12 @@ self.addEventListener('activate', (e) => {
 });
 
 // Network first so updates land immediately when online; cache when offline.
+// `no-cache` revalidates with the server, so the browser's HTTP cache (GitHub Pages
+// sends max-age=600) can never mix files from two different releases.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request.url, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();

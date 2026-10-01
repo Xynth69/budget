@@ -9,17 +9,17 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-const DATA_VERSION = 5;
+const DATA_VERSION = 6;
 
-// The plan as of v4: food (Factor, groceries, YFood) and €100 savings are fixed costs;
-// personal spending is €23 a week (≈ €100 a month) and resets every Monday.
+// The plan as of v6: two bars that go down as you spend (personal €23/week, groceries
+// €46/month); rent, Factor, subscriptions, YFood and €100 savings are fixed costs.
 const PLAN = [
   { id: 'fun', name: 'Personal costs', type: 'tank', amount: 23, period: 'week' },
+  { id: 'gro', name: 'Groceries', type: 'tank', amount: 46, period: 'month' },
   { id: 'rent', name: 'Rent', type: 'bill', amount: 800, period: 'month', due: 1 },
   // Weekly bill `due` is a weekday index where 0 = Monday.
   { id: 'factor', name: 'Factor meals', type: 'bill', amount: 60, period: 'week', due: 0 },
   { id: 'subs', name: 'Subscriptions', type: 'bill', amount: 50, period: 'month', due: 15 },
-  { id: 'gro', name: 'Groceries', type: 'bill', amount: 46, period: 'month', due: 1 },
   { id: 'drinks', name: 'YFood', type: 'bill', amount: 48, period: 'month', due: 1 },
   { id: 'save', name: 'Savings', type: 'bill', amount: 100, period: 'month', due: 1 },
 ];
@@ -27,7 +27,7 @@ const PLAN = [
 // Shapes earlier versions shipped. A category still in one of these was never edited,
 // so it is safe to move it to the current plan; anything the user changed is left alone.
 const SHIPPED = {
-  gro: [['tank', 'month', 46], ['tank', 'week', 10.5]],
+  gro: [['tank', 'week', 10.5], ['bill', 'month', 46]],
   fun: [['tank', 'month', 100], ['tank', 'week', 23], ['tank', 'week', 18.5]],
   drinks: [['tank', 'month', 24], ['tank', 'week', 5.5], ['bill', 'month', 24]],
 };

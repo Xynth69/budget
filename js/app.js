@@ -3,7 +3,7 @@ import {
 } from './store.js';
 import { homeView, tankView, settingsView } from './views.js';
 
-const VERSION = '5.0.0';
+const VERSION = '6.0.0';
 const HINT_KEY = 'budget.welcomeDone';
 const TOAST_MS = 5000;
 const SWIPE_OPEN_PX = -88;
@@ -418,6 +418,14 @@ document.addEventListener('visibilitychange', () => {
 if (navigator.storage?.persist) navigator.storage.persist().catch(() => { /* best effort */ });
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('[budget] offline mode unavailable', err));
+  // When a new release takes over, reload once so the page never runs half old, half new.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
 }
 
 route();
